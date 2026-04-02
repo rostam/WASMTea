@@ -78,16 +78,100 @@
       overflow: hidden;
     }
 
-    .sidebar-head {
+    .sidebar-tabs {
+      display: flex;
+      flex-shrink: 0;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.55rem 0;
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: color 0.15s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover  { color: #aaa; }
+    .tab-btn.active { color: #4a9eff; border-bottom-color: #4a9eff; }
+
+    .tab-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .tab-panel[hidden] { display: none; }
+
+    /* generate tab */
+    #tab-generate { padding: 0.7rem 0.9rem; gap: 0.5rem; overflow-y: auto; }
+
+    .gen-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+    }
+
+    .gen-item {
+      padding: 0.45rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #0f3460;
+      background: #0f3460;
+      color: #aaa;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.12s, color 0.12s;
+      user-select: none;
+    }
+    .gen-item:hover  { background: #1a4a8a; color: #fff; }
+    .gen-item.active { background: #4a9eff; border-color: #4a9eff; color: #fff; }
+
+    .gen-n-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.6rem 0.9rem;
+      gap: 0.5rem;
+      margin-top: 0.3rem;
+    }
+    .gen-n-row label { font-size: 0.78rem; color: #888; flex-shrink: 0; }
+    .gen-n-row input {
+      width: 60px;
+      padding: 0.3rem 0.4rem;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 4px;
+      color: #eee;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+    #n-note { font-size: 0.7rem; color: #555; margin-top: 0.1rem; }
+
+    #btn-gen {
+      width: 100%;
+      padding: 0.45rem;
+      margin-top: 0.4rem;
+      background: #e94560;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #btn-gen:hover { background: #c73652; }
+
+    /* analyze tab */
+    .analyze-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0.5rem 0.9rem;
       border-bottom: 1px solid #0f3460;
       flex-shrink: 0;
     }
-
-    .sidebar-head span { font-size: 0.8rem; font-weight: 600; color: #aaa; letter-spacing: 0.05em; text-transform: uppercase; }
 
     #btn-analyze {
       padding: 0.25rem 0.7rem;
@@ -172,12 +256,37 @@
     </div>
 
     <aside id="sidebar">
-      <div class="sidebar-head">
-        <span>Analysis</span>
-        <button id="btn-analyze">Analyze</button>
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="generate">Generate</button>
+        <button class="tab-btn"        data-tab="analyze">Analyze</button>
       </div>
-      <div id="analysis-scroll">
-        <p id="empty-msg">Build a graph, then click Analyze.</p>
+
+      <div id="tab-generate" class="tab-panel">
+        <div class="gen-grid">
+          <div class="gen-item active" data-kind="complete">Complete</div>
+          <div class="gen-item"        data-kind="cycle">Cycle</div>
+          <div class="gen-item"        data-kind="path">Path</div>
+          <div class="gen-item"        data-kind="star">Star</div>
+          <div class="gen-item"        data-kind="wheel">Wheel</div>
+          <div class="gen-item"        data-kind="petersen">Petersen</div>
+          <div class="gen-item"        data-kind="bipartite">Bipartite</div>
+          <div class="gen-item"        data-kind="grid">Grid (n×n)</div>
+        </div>
+        <div class="gen-n-row">
+          <label>n =</label>
+          <input type="number" id="gen-n" value="5" min="2" max="20">
+        </div>
+        <div id="n-note"></div>
+        <button id="btn-gen">Generate</button>
+      </div>
+
+      <div id="tab-analyze" class="tab-panel" hidden>
+        <div class="analyze-head">
+          <button id="btn-analyze">Analyze</button>
+        </div>
+        <div id="analysis-scroll">
+          <p id="empty-msg">Build a graph, then click Analyze.</p>
+        </div>
       </div>
     </aside>
   </div>
@@ -345,6 +454,51 @@
     canvas.addEventListener('mouseleave', () => {
       if (edgeDrag) { edgeDrag = null; render(); }
       if (moveDrag)   moveDrag = null;
+    });
+
+    // ── sidebar tabs ──────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        document.getElementById('tab-generate').hidden = target !== 'generate';
+        document.getElementById('tab-analyze').hidden  = target !== 'analyze';
+      });
+    });
+
+    // ── graph generators ──────────────────────────────────────────────────────
+    const nInput  = document.getElementById('gen-n');
+    const nNote   = document.getElementById('n-note');
+    const genBtn  = document.getElementById('btn-gen');
+    let   genKind = 'complete';
+
+    const nHidden = new Set(['petersen']);
+    const nNotes  = {
+      bipartite: 'Generates K(n,n)',
+      grid:      'Generates an n×n grid',
+      star:      'n leaves + 1 centre',
+      wheel:     'n rim vertices + 1 hub',
+    };
+
+    document.querySelectorAll('.gen-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.gen-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        genKind = item.dataset.kind;
+        nInput.parentElement.style.visibility = nHidden.has(genKind) ? 'hidden' : '';
+        nNote.textContent = nNotes[genKind] ?? '';
+      });
+    });
+
+    genBtn.addEventListener('click', () => {
+      const n  = Math.max(2, Math.min(20, parseInt(nInput.value) || 5));
+      const cx = canvas.width  / 2;
+      const cy = canvas.height / 2;
+      const r  = Math.min(canvas.width, canvas.height) * 0.38;
+      graph.generate(genKind, n, cx, cy, r);
+      updateStats();
+      render();
     });
 
     // ── analysis sidebar ──────────────────────────────────────────────────────

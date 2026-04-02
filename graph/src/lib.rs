@@ -248,6 +248,125 @@ impl Graph {
         serde_json::to_string(&self.edges).unwrap_or_default()
     }
 
+    /// Clear the graph and generate a named preset.
+    /// `kind`: complete | cycle | path | star | wheel | petersen | bipartite | grid
+    /// `n`: size parameter (ignored for petersen)
+    /// `cx`, `cy`: canvas centre to layout around
+    /// `radius`: layout radius in pixels
+    pub fn generate(&mut self, kind: &str, n: u32, cx: f64, cy: f64, radius: f64) {
+        self.vertices.clear();
+        self.edges.clear();
+        self.next_vertex_id = 0;
+        self.next_edge_id = 0;
+
+        let n = (n.max(2)) as usize;
+        let pi = std::f64::consts::PI;
+
+        let ring = |i: usize, total: usize, r: f64, offset: f64| -> (f64, f64) {
+            let a = 2.0 * pi * i as f64 / total as f64 + offset;
+            (cx + r * a.cos(), cy + r * a.sin())
+        };
+        let top = -pi / 2.0; // start from 12 o'clock
+
+        match kind {
+            "complete" => {
+                for i in 0..n {
+                    let (x, y) = ring(i, n, radius, top);
+                    self.add_vertex(x, y);
+                }
+                for i in 0..n {
+                    for j in i + 1..n {
+                        self.add_edge(i as u32, j as u32);
+                    }
+                }
+            }
+            "cycle" => {
+                for i in 0..n {
+                    let (x, y) = ring(i, n, radius, top);
+                    self.add_vertex(x, y);
+                }
+                for i in 0..n {
+                    self.add_edge(i as u32, ((i + 1) % n) as u32);
+                }
+            }
+            "path" => {
+                let step = if n > 1 { radius * 2.0 / (n - 1) as f64 } else { 0.0 };
+                for i in 0..n {
+                    self.add_vertex(cx - radius + step * i as f64, cy);
+                }
+                for i in 0..n - 1 {
+                    self.add_edge(i as u32, (i + 1) as u32);
+                }
+            }
+            "star" => {
+                self.add_vertex(cx, cy); // centre = id 0
+                for i in 0..n {
+                    let (x, y) = ring(i, n, radius, top);
+                    self.add_vertex(x, y);
+                    self.add_edge(0, (i + 1) as u32);
+                }
+            }
+            "wheel" => {
+                self.add_vertex(cx, cy); // hub = id 0
+                for i in 0..n {
+                    let (x, y) = ring(i, n, radius, top);
+                    self.add_vertex(x, y);
+                    self.add_edge(0, (i + 1) as u32);
+                }
+                for i in 0..n {
+                    self.add_edge((i + 1) as u32, ((i + 1) % n + 1) as u32);
+                }
+            }
+            "petersen" => {
+                for i in 0..5 {
+                    let (x, y) = ring(i, 5, radius, top);
+                    self.add_vertex(x, y);
+                }
+                for i in 0..5 {
+                    let (x, y) = ring(i, 5, radius * 0.45, top);
+                    self.add_vertex(x, y);
+                }
+                for i in 0..5u32 { self.add_edge(i, (i + 1) % 5); }        // outer cycle
+                for i in 0..5u32 { self.add_edge(5 + i, 5 + (i + 2) % 5); } // inner pentagram
+                for i in 0..5u32 { self.add_edge(i, 5 + i); }              // spokes
+            }
+            "bipartite" => {
+                let step = if n > 1 { radius * 2.0 / (n - 1) as f64 } else { 0.0 };
+                for i in 0..n {
+                    let y = cy - radius + step * i as f64;
+                    self.add_vertex(cx - radius * 0.7, y);
+                }
+                for i in 0..n {
+                    let y = cy - radius + step * i as f64;
+                    self.add_vertex(cx + radius * 0.7, y);
+                }
+                for i in 0..n {
+                    for j in 0..n {
+                        self.add_edge(i as u32, (n + j) as u32);
+                    }
+                }
+            }
+            "grid" => {
+                let step = if n > 1 { radius * 2.0 / (n - 1) as f64 } else { 0.0 };
+                for r in 0..n {
+                    for c in 0..n {
+                        let x = cx - radius + step * c as f64;
+                        let y = cy - radius + step * r as f64;
+                        self.add_vertex(x, y);
+                    }
+                }
+                for r in 0..n {
+                    for c in 0..n {
+                        let idx = (r * n + c) as u32;
+                        if c + 1 < n { self.add_edge(idx, idx + 1); }
+                        if r + 1 < n { self.add_edge(idx, idx + n as u32); }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
     /// Run all graph analyses and return a JSON report.
     pub fn analyze(&self) -> String {
         let n = self.vertices.len();
