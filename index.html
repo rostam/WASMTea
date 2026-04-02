@@ -53,7 +53,7 @@
       transition: background 0.15s, transform 0.1s;
       margin-bottom: 3rem;
     }
-    .launch-btn:hover  { background: #c73652; transform: translateY(-1px); }
+    .launch-btn:hover  { filter: brightness(0.85); transform: translateY(-1px); }
     .launch-btn:active { transform: translateY(0); }
 
     .features {
@@ -105,20 +105,23 @@
       Build graphs, run algorithms — no server required.
     </p>
 
-    <a href="graph.html" class="launch-btn">Open Graph Editor</a>
+    <div style="display:flex;gap:1rem;margin-bottom:3rem">
+      <a href="graph.html" class="launch-btn" style="margin-bottom:0">Graph Editor</a>
+      <a href="large-graph.html" class="launch-btn" style="margin-bottom:0;background:#4a9eff">Large Graph (3D)</a>
+    </div>
 
     <div class="features">
       <div class="feature">
         <div class="feature-title">Editor</div>
-        <p>Add vertices and edges with your mouse. Move and delete with dedicated tools.</p>
+        <p>Add vertices and edges with your mouse. Move, delete, and run generators.</p>
       </div>
       <div class="feature">
         <div class="feature-title">Analysis</div>
-        <p>Connectivity, bipartite check, Eulerian paths, diameter, chromatic number.</p>
+        <p>Connectivity, bipartite, Eulerian paths, diameter, chromatic number, MIS, clique.</p>
       </div>
       <div class="feature">
-        <div class="feature-title">NP-Hard</div>
-        <p>Exact backtracking for max independent set, min vertex cover, and max clique.</p>
+        <div class="feature-title">Large Graph (3D)</div>
+        <p>Force-directed 3D layout via ngraph. Supports random, Barabási–Albert, and more up to 500 vertices.</p>
       </div>
     </div>
   </div>

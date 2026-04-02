@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WASMTea — Large Graph</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: #eee;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      padding: 0.6rem 1.2rem;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    header h1 { font-size: 1rem; font-weight: 600; color: #e94560; }
+    header a   { font-size: 0.75rem; color: #555; text-decoration: none; }
+    header a:hover { color: #888; }
+
+    .toolbar { display: flex; gap: 0.4rem; }
+
+    .tool-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 4px;
+      border: 1px solid #0f3460;
+      background: #0f3460;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tool-btn:hover  { background: #1a4a8a; color: #fff; }
+    .tool-btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+    .tool-btn.toggle-on { background: #4a9eff; border-color: #4a9eff; color: #fff; }
+
+    #stats { font-size: 0.75rem; color: #555; margin-left: auto; }
+    #hint  { font-size: 0.75rem; color: #444; }
+
+    /* ── main ─────────────────────────────────────────────────────────── */
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .canvas-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    canvas#three {
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    /* click-target overlay for vertex/edge/delete modes */
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      cursor: crosshair;
+      z-index: 1;
+    }
+
+    /* ── sidebar ──────────────────────────────────────────────────────── */
+    #sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #16213e;
+      border-left: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      flex-shrink: 0;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 0.55rem 0;
+      background: none;
+      border: none;
+      color: #555;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: color 0.15s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+    .tab-btn:hover  { color: #aaa; }
+    .tab-btn.active { color: #4a9eff; border-bottom-color: #4a9eff; }
+
+    .tab-panel { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+    .tab-panel[hidden] { display: none; }
+
+    /* generate tab */
+    #tab-generate { padding: 0.7rem 0.9rem; gap: 0.5rem; overflow-y: auto; }
+
+    .gen-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem;
+    }
+
+    .gen-item {
+      padding: 0.45rem 0.5rem;
+      border-radius: 4px;
+      border: 1px solid #0f3460;
+      background: #0f3460;
+      color: #aaa;
+      font-size: 0.73rem;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.12s, color 0.12s;
+      user-select: none;
+    }
+    .gen-item:hover  { background: #1a4a8a; color: #fff; }
+    .gen-item.active { background: #4a9eff; border-color: #4a9eff; color: #fff; }
+
+    .field-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.4rem;
+    }
+    .field-row label { font-size: 0.78rem; color: #888; flex-shrink: 0; min-width: 2rem; }
+    .field-row input {
+      flex: 1;
+      padding: 0.3rem 0.4rem;
+      background: #0f3460;
+      border: 1px solid #1a4a8a;
+      border-radius: 4px;
+      color: #eee;
+      font-size: 0.8rem;
+      text-align: center;
+    }
+
+    .gen-note { font-size: 0.7rem; color: #555; margin-top: 0.2rem; min-height: 1rem; }
+
+    #btn-gen {
+      width: 100%;
+      padding: 0.45rem;
+      margin-top: 0.5rem;
+      background: #e94560;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #btn-gen:hover { background: #c73652; }
+
+    /* physics tab */
+    #tab-physics { padding: 0.7rem 0.9rem; gap: 0.6rem; overflow-y: auto; }
+
+    .phys-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.3rem 0;
+    }
+    .phys-row label { font-size: 0.78rem; color: #888; }
+    .phys-row input[type=range] { width: 110px; accent-color: #4a9eff; }
+    .phys-row span  { font-size: 0.75rem; color: #aaa; width: 2.5rem; text-align: right; }
+
+    .section-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4a9eff;
+      margin: 0.5rem 0 0.3rem;
+      padding-bottom: 0.2rem;
+      border-bottom: 1px solid #0f3460;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WASMTea — Large Graph</h1>
+    <div class="toolbar">
+      <button class="tool-btn active" id="btn-vertex" title="Click to add vertex">Vertex</button>
+      <button class="tool-btn" id="btn-edge"   title="Click two vertices to add edge">Edge</button>
+      <button class="tool-btn" id="btn-delete" title="Click vertex to delete">Delete</button>
+    </div>
+    <button class="tool-btn toggle-on" id="btn-sim" title="Pause/resume force simulation">Pause</button>
+    <span id="stats">0 vertices · 0 edges</span>
+    <span id="hint">Generate a graph or click to add vertices</span>
+    <a href="index.html">← Back</a>
+  </header>
+
+  <div class="main">
+    <div class="canvas-wrap" id="wrap">
+      <canvas id="three"></canvas>
+      <div id="overlay"></div>
+    </div>
+
+    <aside id="sidebar">
+      <div class="sidebar-tabs">
+        <button class="tab-btn active" data-tab="generate">Generate</button>
+        <button class="tab-btn"        data-tab="physics">Physics</button>
+      </div>
+
+      <div id="tab-generate" class="tab-panel">
+        <div class="gen-grid">
+          <div class="gen-item active" data-kind="random">Random</div>
+          <div class="gen-item" data-kind="barabasi">Barabási–Albert</div>
+          <div class="gen-item" data-kind="complete">Complete</div>
+          <div class="gen-item" data-kind="cycle">Cycle</div>
+          <div class="gen-item" data-kind="path">Path</div>
+          <div class="gen-item" data-kind="star">Star</div>
+          <div class="gen-item" data-kind="wheel">Wheel</div>
+          <div class="gen-item" data-kind="petersen">Petersen</div>
+          <div class="gen-item" data-kind="bipartite">Bipartite</div>
+          <div class="gen-item" data-kind="grid">Grid (n×n)</div>
+        </div>
+
+        <div class="field-row">
+          <label>n =</label>
+          <input type="number" id="gen-n" value="80" min="2" max="500">
+        </div>
+        <div class="field-row" id="p-row">
+          <label>p =</label>
+          <input type="number" id="gen-p" value="0.05" min="0.01" max="1" step="0.01">
+        </div>
+        <div class="gen-note" id="gen-note">Erdős–Rényi: n vertices, each edge with probability p</div>
+
+        <button id="btn-gen">Generate</button>
+      </div>
+
+      <div id="tab-physics" class="tab-panel" hidden>
+        <div class="section-title">Spring</div>
+        <div class="phys-row">
+          <label>Spring length</label>
+          <input type="range" id="sl" min="1" max="100" value="30">
+          <span id="sl-val">30</span>
+        </div>
+        <div class="phys-row">
+          <label>Spring coeff</label>
+          <input type="range" id="sc" min="1" max="100" value="8">
+          <span id="sc-val">8</span>
+        </div>
+
+        <div class="section-title">Gravity</div>
+        <div class="phys-row">
+          <label>Gravity</label>
+          <input type="range" id="grav" min="-20" max="0" value="-4">
+          <span id="grav-val">-4</span>
+        </div>
+        <div class="phys-row">
+          <label>Theta</label>
+          <input type="range" id="theta" min="1" max="20" value="8">
+          <span id="theta-val">0.8</span>
+        </div>
+
+        <div class="section-title">Drag</div>
+        <div class="phys-row">
+          <label>Drag coeff</label>
+          <input type="range" id="drag" min="1" max="100" value="2">
+          <span id="drag-val">0.02</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import createGraph  from 'https://esm.sh/ngraph.graph';
+    import createLayout from 'https://esm.sh/ngraph.forcelayout3d';
+    import * as THREE   from 'https://esm.sh/three';
+    import { OrbitControls } from 'https://esm.sh/three/examples/jsm/controls/OrbitControls.js';
+
+    // ── Three.js setup ────────────────────────────────────────────────────────
+    const wrap     = document.getElementById('wrap');
+    const threeCanvas = document.getElementById('three');
+
+    const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0x1a1a2e);
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 5000);
+    camera.position.set(0, 0, 200);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(1, 1, 1);
+    scene.add(dirLight);
+
+    const controls = new OrbitControls(camera, threeCanvas);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    function resizeRenderer() {
+      const w = wrap.clientWidth, h = wrap.clientHeight;
+      threeCanvas.width  = w;
+      threeCanvas.height = h;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resizeRenderer);
+    resizeRenderer();
+
+    // ── graph & layout state ──────────────────────────────────────────────────
+    let ngraph  = createGraph();
+    let layout  = null;
+    let running = true;
+    let nextId  = 0;
+
+    // Three.js scene objects (rebuilt on generate)
+    let nodeMesh  = null;
+    let edgeLines = null;
+    let nodeIds   = [];           // nodeIds[instanceIdx] = nodeId
+    const nodeIdx = new Map();    // nodeId -> instanceIdx
+
+    const NODE_RADIUS = 1.2;
+    const nodeMat = new THREE.MeshPhongMaterial({ color: 0xe94560 });
+    const nodeGeo = new THREE.SphereGeometry(NODE_RADIUS, 8, 6);
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0x4a9eff, transparent: true, opacity: 0.5 });
+
+    function rebuildScene() {
+      if (nodeMesh)  { scene.remove(nodeMesh);  nodeMesh.dispose?.(); }
+      if (edgeLines) { scene.remove(edgeLines); edgeLines.geometry.dispose(); }
+
+      const nc = ngraph.getNodeCount();
+      const ec = ngraph.getLinkCount();
+
+      nodeIds.length = 0;
+      nodeIdx.clear();
+
+      if (nc === 0) { nodeMesh = null; edgeLines = null; return; }
+
+      // nodes — InstancedMesh
+      nodeMesh = new THREE.InstancedMesh(nodeGeo, nodeMat, nc);
+      nodeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      let i = 0;
+      ngraph.forEachNode(n => { nodeIds.push(n.id); nodeIdx.set(n.id, i++); });
+      scene.add(nodeMesh);
+
+      // edges — single LineSegments
+      const pos = new Float32Array(ec * 6);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+      edgeLines = new THREE.LineSegments(geo, edgeMat);
+      scene.add(edgeLines);
+    }
+
+    function updatePositions() {
+      if (!nodeMesh || !layout) return;
+      const m = new THREE.Matrix4();
+      nodeIds.forEach((id, i) => {
+        const p = layout.getNodePosition(id);
+        m.setPosition(p.x, p.y, p.z);
+        nodeMesh.setMatrixAt(i, m);
+      });
+      nodeMesh.instanceMatrix.needsUpdate = true;
+
+      const arr = edgeLines.geometry.attributes.position.array;
+      let k = 0;
+      ngraph.forEachLink(l => {
+        const a = layout.getNodePosition(l.fromId);
+        const b = layout.getNodePosition(l.toId);
+        arr[k++]=a.x; arr[k++]=a.y; arr[k++]=a.z;
+        arr[k++]=b.x; arr[k++]=b.y; arr[k++]=b.z;
+      });
+      edgeLines.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // ── physics settings ──────────────────────────────────────────────────────
+    function physicsSettings() {
+      return {
+        springLength:      parseInt(document.getElementById('sl').value),
+        springCoefficient: parseInt(document.getElementById('sc').value) / 100,
+        gravity:           parseInt(document.getElementById('grav').value),
+        theta:             parseInt(document.getElementById('theta').value) / 10,
+        dragCoefficient:   parseInt(document.getElementById('drag').value) / 100,
+        dimensions:        3,
+      };
+    }
+
+    function rebuildLayout() {
+      layout = createLayout(ngraph, physicsSettings());
+    }
+
+    // ── animation loop ────────────────────────────────────────────────────────
+    const STEPS_PER_FRAME = 1;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      if (running && layout) {
+        for (let s = 0; s < STEPS_PER_FRAME; s++) layout.step();
+        updatePositions();
+      }
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // ── stat bar ──────────────────────────────────────────────────────────────
+    const statsEl = document.getElementById('stats');
+    const hintEl  = document.getElementById('hint');
+    function updateStats() {
+      statsEl.textContent = `${ngraph.getNodeCount()} vertices · ${ngraph.getLinkCount()} edges`;
+    }
+
+    // ── generators ────────────────────────────────────────────────────────────
+    function buildGraph(kind, n, p) {
+      const g = createGraph();
+      n = Math.max(2, n);
+
+      switch (kind) {
+        case 'random':
+          for (let i = 0; i < n; i++) g.addNode(i);
+          for (let i = 0; i < n; i++)
+            for (let j = i + 1; j < n; j++)
+              if (Math.random() < p) g.addLink(i, j);
+          break;
+
+        case 'barabasi': {
+          g.addNode(0); g.addNode(1); g.addLink(0, 1);
+          const deg = new Array(n).fill(0);
+          deg[0] = 1; deg[1] = 1;
+          let total = 2;
+          for (let i = 2; i < n; i++) {
+            g.addNode(i);
+            const m = Math.min(2, i);
+            const attached = new Set();
+            let tries = 0;
+            while (attached.size < m && tries++ < 200) {
+              let r = Math.random() * total, cum = 0;
+              for (let j = 0; j < i; j++) {
+                cum += deg[j];
+                if (cum >= r && !attached.has(j)) { attached.add(j); break; }
+              }
+            }
+            attached.forEach(j => {
+              g.addLink(i, j);
+              deg[i]++; deg[j]++; total += 2;
+            });
+          }
+          break;
+        }
+
+        case 'complete':
+          for (let i = 0; i < n; i++) g.addNode(i);
+          for (let i = 0; i < n; i++)
+            for (let j = i + 1; j < n; j++) g.addLink(i, j);
+          break;
+
+        case 'cycle':
+          for (let i = 0; i < n; i++) g.addNode(i);
+          for (let i = 0; i < n; i++) g.addLink(i, (i + 1) % n);
+          break;
+
+        case 'path':
+          for (let i = 0; i < n; i++) g.addNode(i);
+          for (let i = 0; i < n - 1; i++) g.addLink(i, i + 1);
+          break;
+
+        case 'star':
+          g.addNode(0);
+          for (let i = 1; i <= n; i++) { g.addNode(i); g.addLink(0, i); }
+          break;
+
+        case 'wheel':
+          g.addNode(0);
+          for (let i = 1; i <= n; i++) { g.addNode(i); g.addLink(0, i); }
+          for (let i = 1; i <= n; i++) g.addLink(i, i % n + 1);
+          break;
+
+        case 'petersen':
+          for (let i = 0; i < 10; i++) g.addNode(i);
+          for (let i = 0; i < 5; i++) g.addLink(i, (i + 1) % 5);
+          for (let i = 0; i < 5; i++) g.addLink(5 + i, 5 + (i + 2) % 5);
+          for (let i = 0; i < 5; i++) g.addLink(i, 5 + i);
+          break;
+
+        case 'bipartite':
+          for (let i = 0; i < 2 * n; i++) g.addNode(i);
+          for (let i = 0; i < n; i++)
+            for (let j = 0; j < n; j++) g.addLink(i, n + j);
+          break;
+
+        case 'grid':
+          for (let r = 0; r < n; r++)
+            for (let c = 0; c < n; c++) {
+              g.addNode(r * n + c);
+              if (c > 0) g.addLink(r * n + c, r * n + c - 1);
+              if (r > 0) g.addLink(r * n + c, (r - 1) * n + c);
+            }
+          break;
+      }
+      return g;
+    }
+
+    function applyGraph(g) {
+      ngraph = g;
+      nextId = ngraph.getNodeCount();
+      rebuildScene();
+      rebuildLayout();
+      updateStats();
+      // reset camera
+      camera.position.set(0, 0, Math.max(150, ngraph.getNodeCount() * 1.5));
+      controls.reset();
+    }
+
+    // ── generator UI ──────────────────────────────────────────────────────────
+    let genKind = 'random';
+
+    const nNotes = {
+      random:   'Erdős–Rényi: n vertices, each edge with probability p',
+      barabasi: 'Preferential attachment — scale-free network (p ignored)',
+      complete: 'K_n: every pair connected (keep n small)',
+      bipartite:'K(n,n): two groups, all cross-edges (keep n small)',
+      grid:     'n×n lattice',
+      star:     'n leaves + 1 centre',
+      wheel:    'n rim vertices + 1 hub',
+    };
+    const pVisible = new Set(['random']);
+
+    document.querySelectorAll('.gen-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.gen-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+        genKind = item.dataset.kind;
+        document.getElementById('p-row').style.display = pVisible.has(genKind) ? '' : 'none';
+        document.getElementById('gen-note').textContent = nNotes[genKind] ?? '';
+        document.getElementById('gen-n').style.visibility = genKind === 'petersen' ? 'hidden' : '';
+      });
+    });
+    // init note
+    document.getElementById('gen-note').textContent = nNotes['random'];
+
+    document.getElementById('btn-gen').addEventListener('click', () => {
+      const n = Math.max(2, Math.min(500, parseInt(document.getElementById('gen-n').value) || 80));
+      const p = Math.max(0.001, Math.min(1, parseFloat(document.getElementById('gen-p').value) || 0.05));
+      applyGraph(buildGraph(genKind, n, p));
+    });
+
+    // ── physics sliders ───────────────────────────────────────────────────────
+    [
+      ['sl',   v => v,        'sl-val'],
+      ['sc',   v => (v/100).toFixed(2), 'sc-val'],
+      ['grav', v => v,        'grav-val'],
+      ['theta',v => (v/10).toFixed(1), 'theta-val'],
+      ['drag', v => (v/100).toFixed(2), 'drag-val'],
+    ].forEach(([id, fmt, labelId]) => {
+      document.getElementById(id).addEventListener('input', e => {
+        document.getElementById(labelId).textContent = fmt(e.target.value);
+        if (layout) rebuildLayout();
+      });
+    });
+
+    // ── sidebar tabs ──────────────────────────────────────────────────────────
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const t = btn.dataset.tab;
+        document.getElementById('tab-generate').hidden = t !== 'generate';
+        document.getElementById('tab-physics').hidden  = t !== 'physics';
+      });
+    });
+
+    // ── pause / resume ────────────────────────────────────────────────────────
+    const simBtn = document.getElementById('btn-sim');
+    simBtn.addEventListener('click', () => {
+      running = !running;
+      simBtn.textContent = running ? 'Pause' : 'Resume';
+      simBtn.classList.toggle('toggle-on', running);
+    });
+
+    // ── toolbar mode ──────────────────────────────────────────────────────────
+    let mode = 'vertex';
+    const modeHints = {
+      vertex: 'Click empty space to add a vertex',
+      edge:   'Click a vertex, then another to add an edge',
+      delete: 'Click a vertex to delete it',
+    };
+
+    document.querySelectorAll('#btn-vertex, #btn-edge, #btn-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        mode = btn.id.replace('btn-', '');
+        document.querySelectorAll('.tool-btn[id^=btn-]').forEach(b => {
+          if (['btn-vertex','btn-edge','btn-delete'].includes(b.id)) b.classList.remove('active');
+        });
+        btn.classList.add('active');
+        hintEl.textContent = modeHints[mode];
+        edgeSource = null;
+      });
+    });
+
+    // ── raycasting ────────────────────────────────────────────────────────────
+    const raycaster = new THREE.Raycaster();
+    const mouse2    = new THREE.Vector2();
+    let edgeSource  = null; // nodeId for edge mode
+
+    function getNearestNode(event) {
+      if (!nodeMesh) return -1;
+      const rect = threeCanvas.getBoundingClientRect();
+      mouse2.x = ((event.clientX - rect.left)  / rect.width)  * 2 - 1;
+      mouse2.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse2, camera);
+      const hits = raycaster.intersectObject(nodeMesh);
+      return hits.length > 0 ? nodeIds[hits[0].instanceId] : -1;
+    }
+
+    document.getElementById('overlay').addEventListener('click', e => {
+      const vid = getNearestNode(e);
+
+      if (mode === 'vertex' && vid === -1) {
+        // Add vertex at a random position near the cloud centre
+        const id = nextId++;
+        ngraph.addNode(id);
+        rebuildScene();
+        rebuildLayout();
+        updateStats();
+
+      } else if (mode === 'edge') {
+        if (vid === -1) { edgeSource = null; hintEl.textContent = modeHints.edge; return; }
+        if (edgeSource === null) {
+          edgeSource = vid;
+          hintEl.textContent = `Source: vertex ${vid} — now click the target`;
+        } else {
+          if (edgeSource !== vid && !ngraph.hasLink(edgeSource, vid)) {
+            ngraph.addLink(edgeSource, vid);
+            rebuildScene();
+            rebuildLayout();
+            updateStats();
+          }
+          edgeSource = null;
+          hintEl.textContent = modeHints.edge;
+        }
+
+      } else if (mode === 'delete' && vid !== -1) {
+        ngraph.removeNode(vid);
+        rebuildScene();
+        rebuildLayout();
+        updateStats();
+      }
+    });
+
+    // ── initial state ─────────────────────────────────────────────────────────
+    updateStats();
+  </script>
+</body>
+</html>
