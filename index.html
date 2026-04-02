@@ -3,136 +3,129 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WASMTea — Markdown to HTML</title>
+  <title>WASMTea — Graph Editor</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: system-ui, sans-serif;
-      background: #f5f5f5;
-      color: #222;
-      height: 100vh;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
     }
 
-    header {
-      padding: 1rem 1.5rem;
-      background: #1a1a2e;
+    .hero {
+      text-align: center;
+      max-width: 600px;
+    }
+
+    .logo {
+      font-size: 3rem;
+      font-weight: 800;
+      color: #e94560;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+
+    .tagline {
+      font-size: 1.05rem;
+      color: #888;
+      margin-bottom: 2.5rem;
+      line-height: 1.5;
+    }
+
+    .tagline strong { color: #aaa; }
+
+    .launch-btn {
+      display: inline-block;
+      padding: 0.85rem 2.4rem;
+      background: #e94560;
       color: #fff;
-      font-size: 1.1rem;
+      font-size: 1rem;
       font-weight: 600;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background 0.15s, transform 0.1s;
+      margin-bottom: 3rem;
+    }
+    .launch-btn:hover  { background: #c73652; transform: translateY(-1px); }
+    .launch-btn:active { transform: translateY(0); }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+      width: 100%;
+      max-width: 640px;
+      text-align: left;
     }
 
-    .panes {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .pane {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .pane + .pane {
-      border-left: 2px solid #ddd;
-    }
-
-    .pane-label {
-      padding: 0.4rem 1rem;
-      background: #eee;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #555;
-    }
-
-    textarea {
-      flex: 1;
+    .feature {
+      background: #16213e;
+      border: 1px solid #0f3460;
+      border-radius: 6px;
       padding: 1rem;
-      font-family: monospace;
-      font-size: 0.95rem;
-      border: none;
-      outline: none;
-      resize: none;
-      background: #fff;
     }
 
-    #preview {
-      flex: 1;
-      padding: 1rem 1.5rem;
-      overflow-y: auto;
-      background: #fff;
-      line-height: 1.6;
-    }
-
-    #preview h1, #preview h2, #preview h3 { margin: 1rem 0 0.5rem; }
-    #preview p  { margin: 0.5rem 0; }
-    #preview pre { background: #f0f0f0; padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
-    #preview code { font-family: monospace; }
-    #preview ul, #preview ol { padding-left: 1.5rem; margin: 0.5rem 0; }
-    #preview blockquote { border-left: 3px solid #ccc; padding-left: 1rem; color: #555; }
-
-    #status {
-      padding: 0.3rem 1rem;
+    .feature-title {
       font-size: 0.8rem;
-      background: #1a1a2e;
-      color: #aaa;
+      font-weight: 700;
+      color: #4a9eff;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.4rem;
     }
+
+    .feature p {
+      font-size: 0.78rem;
+      color: #777;
+      line-height: 1.5;
+    }
+
+    footer {
+      margin-top: 3rem;
+      font-size: 0.72rem;
+      color: #333;
+    }
+
+    footer a { color: #555; text-decoration: none; }
+    footer a:hover { color: #888; }
   </style>
 </head>
 <body>
-  <header>WASMTea — Markdown Renderer (Rust + WebAssembly)</header>
-  <div class="panes">
-    <div class="pane">
-      <div class="pane-label">Markdown</div>
-      <textarea id="input" spellcheck="false"># Hello from WASMTea!
+  <div class="hero">
+    <div class="logo">WASMTea</div>
+    <p class="tagline">
+      A browser-based graph editor powered by <strong>Rust</strong> and <strong>WebAssembly</strong>.<br>
+      Build graphs, run algorithms — no server required.
+    </p>
 
-Write some **markdown** here and see it rendered live.
+    <a href="graph.html" class="launch-btn">Open Graph Editor</a>
 
-- Powered by [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark)
-- Compiled to WebAssembly with `wasm-pack`
-- Zero JavaScript parsing logic
-
-## Code example
-
-```rust
-pub fn render_markdown(markdown: String) -> String {
-    let mut html_buf = String::new();
-    let parser = Parser::new(&markdown[..]);
-    html::push_html(&mut html_buf, parser);
-    html_buf
-}
-```
-</textarea>
-    </div>
-    <div class="pane">
-      <div class="pane-label">Preview</div>
-      <div id="preview"></div>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">Editor</div>
+        <p>Add vertices and edges with your mouse. Move and delete with dedicated tools.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Analysis</div>
+        <p>Connectivity, bipartite check, Eulerian paths, diameter, chromatic number.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-title">NP-Hard</div>
+        <p>Exact backtracking for max independent set, min vertex cover, and max clique.</p>
+      </div>
     </div>
   </div>
-  <div id="status">Loading WASM...</div>
 
-  <script type="module">
-    import init, { render_markdown } from './wasmtea/pkg/wasmtea.js';
-
-    const input   = document.getElementById('input');
-    const preview = document.getElementById('preview');
-    const status  = document.getElementById('status');
-
-    await init();
-    status.textContent = 'WASM ready';
-
-    function update() {
-      preview.innerHTML = render_markdown(input.value);
-    }
-
-    input.addEventListener('input', update);
-    update();
-  </script>
+  <footer>
+    Built with Rust &amp; WebAssembly ·
+    <a href="https://github.com/rostam/WASMTea" target="_blank">GitHub</a>
+  </footer>
 </body>
 </html>
