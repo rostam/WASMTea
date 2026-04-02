@@ -5,6 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+web = ["wasm-bindgen"]
+
 [dependencies]
 pulldown-cmark = "0.9.2"
 structopt = "0.3.26"
+wasm-bindgen = { version = "0.2", optional = true }

@@ -1,0 +1,14 @@
+/home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/deps/serde-503401f162e9ac59.d: /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/build/serde-2216ca5856e56167/out/private.rs
+
+/home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/deps/libserde-503401f162e9ac59.rlib: /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/build/serde-2216ca5856e56167/out/private.rs
+
+/home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/deps/libserde-503401f162e9ac59.rmeta: /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/build/serde-2216ca5856e56167/out/private.rs
+
+/home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/home/rostam/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/build/serde-2216ca5856e56167/out/private.rs:
+
+# env-dep:OUT_DIR=/home/rostam/kara/WASMTea/graph/target/wasm32-unknown-unknown/release/build/serde-2216ca5856e56167/out

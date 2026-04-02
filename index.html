@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WASMTea — Markdown to HTML</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 1rem 1.5rem;
+      background: #1a1a2e;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .panes {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane + .pane {
+      border-left: 2px solid #ddd;
+    }
+
+    .pane-label {
+      padding: 0.4rem 1rem;
+      background: #eee;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #555;
+    }
+
+    textarea {
+      flex: 1;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.95rem;
+      border: none;
+      outline: none;
+      resize: none;
+      background: #fff;
+    }
+
+    #preview {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      overflow-y: auto;
+      background: #fff;
+      line-height: 1.6;
+    }
+
+    #preview h1, #preview h2, #preview h3 { margin: 1rem 0 0.5rem; }
+    #preview p  { margin: 0.5rem 0; }
+    #preview pre { background: #f0f0f0; padding: 0.75rem; border-radius: 4px; overflow-x: auto; }
+    #preview code { font-family: monospace; }
+    #preview ul, #preview ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+    #preview blockquote { border-left: 3px solid #ccc; padding-left: 1rem; color: #555; }
+
+    #status {
+      padding: 0.3rem 1rem;
+      font-size: 0.8rem;
+      background: #1a1a2e;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <header>WASMTea — Markdown Renderer (Rust + WebAssembly)</header>
+  <div class="panes">
+    <div class="pane">
+      <div class="pane-label">Markdown</div>
+      <textarea id="input" spellcheck="false"># Hello from WASMTea!
+
+Write some **markdown** here and see it rendered live.
+
+- Powered by [pulldown-cmark](https://github.com/raphlinus/pulldown-cmark)
+- Compiled to WebAssembly with `wasm-pack`
+- Zero JavaScript parsing logic
+
+## Code example
+
+```rust
+pub fn render_markdown(markdown: String) -> String {
+    let mut html_buf = String::new();
+    let parser = Parser::new(&markdown[..]);
+    html::push_html(&mut html_buf, parser);
+    html_buf
+}
+```
+</textarea>
+    </div>
+    <div class="pane">
+      <div class="pane-label">Preview</div>
+      <div id="preview"></div>
+    </div>
+  </div>
+  <div id="status">Loading WASM...</div>
+
+  <script type="module">
+    import init, { render_markdown } from './wasmtea/pkg/wasmtea.js';
+
+    const input   = document.getElementById('input');
+    const preview = document.getElementById('preview');
+    const status  = document.getElementById('status');
+
+    await init();
+    status.textContent = 'WASM ready';
+
+    function update() {
+      preview.innerHTML = render_markdown(input.value);
+    }
+
+    input.addEventListener('input', update);
+    update();
+  </script>
+</body>
+</html>
