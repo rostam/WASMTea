@@ -464,3 +464,346 @@ impl Graph {
         }).unwrap_or_default()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    fn parse(json: &str) -> serde_json::Value {
+        serde_json::from_str(json).unwrap()
+    }
+
+    /// Build a triangle (K3): vertices 0,1,2 fully connected.
+    fn k3() -> Graph {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.add_vertex(1.0, 0.0);
+        g.add_vertex(0.5, 1.0);
+        g.add_edge(0, 1);
+        g.add_edge(1, 2);
+        g.add_edge(0, 2);
+        g
+    }
+
+    /// Build a path P4: 0—1—2—3
+    fn path4() -> Graph {
+        let mut g = Graph::new();
+        for i in 0..4 { g.add_vertex(i as f64, 0.0); }
+        g.add_edge(0, 1);
+        g.add_edge(1, 2);
+        g.add_edge(2, 3);
+        g
+    }
+
+    // ── add_vertex / add_edge ────────────────────────────────────────────────
+
+    #[test]
+    fn test_add_vertices() {
+        let mut g = Graph::new();
+        let id0 = g.add_vertex(10.0, 20.0);
+        let id1 = g.add_vertex(30.0, 40.0);
+        assert_eq!(g.vertex_count(), 2);
+        assert_eq!(id0, 0);
+        assert_eq!(id1, 1);
+    }
+
+    #[test]
+    fn test_add_edge_success() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.add_vertex(1.0, 0.0);
+        assert!(g.add_edge(0, 1));
+        assert_eq!(g.edge_count(), 1);
+    }
+
+    #[test]
+    fn test_add_edge_self_loop_rejected() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        assert!(!g.add_edge(0, 0));
+        assert_eq!(g.edge_count(), 0);
+    }
+
+    #[test]
+    fn test_add_edge_duplicate_rejected() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.add_vertex(1.0, 0.0);
+        assert!(g.add_edge(0, 1));
+        assert!(!g.add_edge(0, 1));
+        assert!(!g.add_edge(1, 0)); // reverse direction also counts as duplicate
+        assert_eq!(g.edge_count(), 1);
+    }
+
+    #[test]
+    fn test_add_edge_missing_vertex_rejected() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        assert!(!g.add_edge(0, 99));
+        assert_eq!(g.edge_count(), 0);
+    }
+
+    // ── vertex_at ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_vertex_at_hit() {
+        let mut g = Graph::new();
+        g.add_vertex(100.0, 100.0);
+        assert_eq!(g.vertex_at(100.0, 100.0), 0);
+        assert_eq!(g.vertex_at(115.0, 100.0), 0); // within VERTEX_RADIUS (22)
+    }
+
+    #[test]
+    fn test_vertex_at_miss() {
+        let mut g = Graph::new();
+        g.add_vertex(100.0, 100.0);
+        assert_eq!(g.vertex_at(200.0, 200.0), -1);
+        assert_eq!(g.vertex_at(123.0, 100.0), -1); // just outside radius
+    }
+
+    // ── move_vertex ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_move_vertex() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.move_vertex(0, 50.0, 75.0);
+        assert_eq!(g.vertex_at(50.0, 75.0), 0);
+        assert_eq!(g.vertex_at(0.0, 0.0), -1);
+    }
+
+    // ── delete_vertex / delete_edge ──────────────────────────────────────────
+
+    #[test]
+    fn test_delete_vertex_removes_incident_edges() {
+        let mut g = k3();
+        assert_eq!(g.vertex_count(), 3);
+        assert_eq!(g.edge_count(), 3);
+        g.delete_vertex(1);
+        assert_eq!(g.vertex_count(), 2);
+        assert_eq!(g.edge_count(), 1); // only edge 0-2 survives
+    }
+
+    #[test]
+    fn test_delete_edge() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.add_vertex(1.0, 0.0);
+        g.add_edge(0, 1);
+        g.delete_edge(0);
+        assert_eq!(g.edge_count(), 0);
+        assert_eq!(g.vertex_count(), 2); // vertices untouched
+    }
+
+    // ── analyze: empty graph ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_analyze_empty() {
+        let g = Graph::new();
+        let a = parse(&g.analyze());
+        assert_eq!(a["vertex_count"], 0);
+        assert_eq!(a["edge_count"], 0);
+        assert_eq!(a["density"], 0.0);
+        assert_eq!(a["connected_components"], 0);
+    }
+
+    // ── analyze: single isolated vertex ──────────────────────────────────────
+
+    #[test]
+    fn test_analyze_single_vertex() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        let a = parse(&g.analyze());
+        assert_eq!(a["vertex_count"], 1);
+        assert_eq!(a["edge_count"], 0);
+        assert_eq!(a["connected_components"], 1);
+        assert_eq!(a["min_degree"], 0);
+        assert_eq!(a["max_degree"], 0);
+        assert_eq!(a["is_bipartite"], true);
+        assert_eq!(a["has_eulerian_circuit"], false);
+    }
+
+    // ── analyze: K3 ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn test_analyze_k3_counts() {
+        let g = k3();
+        let a = parse(&g.analyze());
+        assert_eq!(a["vertex_count"], 3);
+        assert_eq!(a["edge_count"], 3);
+        assert!((a["density"].as_f64().unwrap() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_analyze_k3_connectivity() {
+        let a = parse(&k3().analyze());
+        assert_eq!(a["is_connected"], true);
+        assert_eq!(a["connected_components"], 1);
+        assert_eq!(a["diameter"], 1);
+    }
+
+    #[test]
+    fn test_analyze_k3_degrees() {
+        let a = parse(&k3().analyze());
+        assert_eq!(a["min_degree"], 2);
+        assert_eq!(a["max_degree"], 2);
+        assert!((a["avg_degree"].as_f64().unwrap() - 2.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_analyze_k3_not_bipartite() {
+        assert_eq!(parse(&k3().analyze())["is_bipartite"], false);
+    }
+
+    #[test]
+    fn test_analyze_k3_eulerian_circuit() {
+        // K3: all degrees even (2), connected → has eulerian circuit
+        let a = parse(&k3().analyze());
+        assert_eq!(a["has_eulerian_circuit"], true);
+        assert_eq!(a["has_eulerian_path"], false);
+    }
+
+    #[test]
+    fn test_analyze_k3_clique_and_mis() {
+        let a = parse(&k3().analyze());
+        assert_eq!(a["max_clique"], 3);
+        assert_eq!(a["max_independent_set"], 1);
+        assert_eq!(a["min_vertex_cover"], 2);
+        assert_eq!(a["chromatic_number_greedy"], 3);
+    }
+
+    // ── analyze: path P4 ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_analyze_path4_counts() {
+        let a = parse(&path4().analyze());
+        assert_eq!(a["vertex_count"], 4);
+        assert_eq!(a["edge_count"], 3);
+        assert!((a["density"].as_f64().unwrap() - 0.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_analyze_path4_bipartite() {
+        assert_eq!(parse(&path4().analyze())["is_bipartite"], true);
+    }
+
+    #[test]
+    fn test_analyze_path4_diameter() {
+        assert_eq!(parse(&path4().analyze())["diameter"], 3);
+    }
+
+    #[test]
+    fn test_analyze_path4_eulerian_path() {
+        // P4 has exactly 2 odd-degree vertices (the endpoints, degree 1)
+        let a = parse(&path4().analyze());
+        assert_eq!(a["has_eulerian_path"], true);
+        assert_eq!(a["has_eulerian_circuit"], false);
+    }
+
+    #[test]
+    fn test_analyze_path4_chromatic() {
+        assert_eq!(parse(&path4().analyze())["chromatic_number_greedy"], 2);
+    }
+
+    // ── analyze: disconnected graph ───────────────────────────────────────────
+
+    #[test]
+    fn test_analyze_disconnected() {
+        let mut g = Graph::new();
+        g.add_vertex(0.0, 0.0);
+        g.add_vertex(100.0, 0.0);
+        // no edges
+        let a = parse(&g.analyze());
+        assert_eq!(a["is_connected"], false);
+        assert_eq!(a["connected_components"], 2);
+        assert_eq!(a["diameter"], -1);
+        assert_eq!(a["has_eulerian_circuit"], false);
+        assert_eq!(a["has_eulerian_path"], false);
+    }
+
+    // ── generate presets ─────────────────────────────────────────────────────
+
+    #[test]
+    fn test_generate_complete4() {
+        let mut g = Graph::new();
+        g.generate("complete", 4, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 4);
+        assert_eq!(g.edge_count(), 6); // C(4,2)
+    }
+
+    #[test]
+    fn test_generate_cycle5() {
+        let mut g = Graph::new();
+        g.generate("cycle", 5, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 5);
+        assert_eq!(g.edge_count(), 5);
+        let a = parse(&g.analyze());
+        assert_eq!(a["has_eulerian_circuit"], true);
+    }
+
+    #[test]
+    fn test_generate_path4() {
+        let mut g = Graph::new();
+        g.generate("path", 4, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 4);
+        assert_eq!(g.edge_count(), 3);
+    }
+
+    #[test]
+    fn test_generate_star3() {
+        let mut g = Graph::new();
+        g.generate("star", 3, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 4); // centre + 3 leaves
+        assert_eq!(g.edge_count(), 3);
+        assert_eq!(parse(&g.analyze())["is_bipartite"], true);
+    }
+
+    #[test]
+    fn test_generate_wheel4() {
+        let mut g = Graph::new();
+        g.generate("wheel", 4, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 5); // hub + 4 rim
+        assert_eq!(g.edge_count(), 8);   // 4 spokes + 4 rim edges
+    }
+
+    #[test]
+    fn test_generate_petersen() {
+        let mut g = Graph::new();
+        g.generate("petersen", 0, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 10);
+        assert_eq!(g.edge_count(), 15);
+        let a = parse(&g.analyze());
+        assert_eq!(a["is_connected"], true);
+        assert_eq!(a["min_degree"], 3);
+        assert_eq!(a["max_degree"], 3);
+        assert_eq!(a["is_bipartite"], false);
+    }
+
+    #[test]
+    fn test_generate_bipartite3() {
+        let mut g = Graph::new();
+        g.generate("bipartite", 3, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 6);
+        assert_eq!(g.edge_count(), 9); // 3×3 complete bipartite
+        assert_eq!(parse(&g.analyze())["is_bipartite"], true);
+    }
+
+    #[test]
+    fn test_generate_grid3() {
+        let mut g = Graph::new();
+        g.generate("grid", 3, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 9);
+        assert_eq!(g.edge_count(), 12); // 3×2 horizontal + 2×3 vertical
+        assert_eq!(parse(&g.analyze())["is_bipartite"], true);
+    }
+
+    #[test]
+    fn test_generate_clears_previous() {
+        let mut g = k3();
+        g.generate("path", 2, 0.0, 0.0, 100.0);
+        assert_eq!(g.vertex_count(), 2);
+        assert_eq!(g.edge_count(), 1);
+    }
+}
