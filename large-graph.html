@@ -187,6 +187,54 @@
     .phys-row label { font-size: 0.78rem; color: #888; }
     .phys-row input[type=range] { width: 100px; accent-color: #4a9eff; }
     .phys-row span  { font-size: 0.75rem; color: #aaa; width: 3rem; text-align: right; }
+
+    /* analyze tab */
+    .analyze-head {
+      display: flex;
+      justify-content: flex-end;
+      padding: 0.5rem 0.9rem;
+      border-bottom: 1px solid #0f3460;
+      flex-shrink: 0;
+    }
+
+    #btn-analyze {
+      padding: 0.25rem 0.7rem;
+      background: #e94560;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #btn-analyze:hover    { background: #c73652; }
+    #btn-analyze:disabled { background: #555; cursor: default; }
+
+    #analysis-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem 0.9rem;
+    }
+
+    .a-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0.18rem 0;
+      font-size: 0.78rem;
+    }
+    .a-row .lbl { color: #888; }
+    .a-row .val { color: #eee; font-variant-numeric: tabular-nums; }
+    .val.yes { color: #4caf50; }
+    .val.no  { color: #e94560; }
+    .val.na  { color: #666; font-style: italic; }
+
+    .deg-seq {
+      font-size: 0.7rem; color: #666;
+      word-break: break-all; line-height: 1.6; margin-top: 0.15rem;
+    }
+
+    #empty-msg { font-size: 0.78rem; color: #555; text-align: center; margin-top: 2rem; }
   </style>
 </head>
 <body>
@@ -210,6 +258,7 @@
       <div class="sidebar-tabs">
         <button class="tab-btn active" data-tab="generate">Generate</button>
         <button class="tab-btn"        data-tab="physics">Physics</button>
+        <button class="tab-btn"        data-tab="analyze">Analyze</button>
       </div>
 
       <div id="tab-generate" class="tab-panel">
@@ -266,6 +315,15 @@
           <label>Theta</label>
           <input type="range" id="theta" min="1" max="20" value="8">
           <span id="theta-val">0.8</span>
+        </div>
+      </div>
+
+      <div id="tab-analyze" class="tab-panel" hidden>
+        <div class="analyze-head">
+          <button id="btn-analyze">Analyze</button>
+        </div>
+        <div id="analysis-scroll">
+          <p id="empty-msg">Build a graph, then click Analyze.</p>
         </div>
       </div>
     </aside>
@@ -501,13 +559,15 @@
     });
 
     // ── sidebar tabs ──────────────────────────────────────────────────────────
+    const TAB_IDS = ['generate', 'physics', 'analyze'];
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         const t = btn.dataset.tab;
-        document.getElementById('tab-generate').hidden = t !== 'generate';
-        document.getElementById('tab-physics').hidden  = t !== 'physics';
+        TAB_IDS.forEach(id => {
+          document.getElementById('tab-' + id).hidden = id !== t;
+        });
       });
     });
 
@@ -549,6 +609,206 @@
         vivaGraph.addNode(id);
         updateStats();
       }
+    });
+
+    // ── graph analysis (pure JS, mirrors Rust algorithms in graph.html) ───────
+    function analyzeGraph(g) {
+      const n = g.getNodesCount();
+      const m = g.getLinksCount();
+      if (n === 0) return null;
+
+      // Build index + adjacency list
+      const ids = [];
+      const idxOf = new Map();
+      g.forEachNode(node => { idxOf.set(node.id, ids.length); ids.push(node.id); });
+      const adj = Array.from({length: n}, () => []);
+      g.forEachLink(link => {
+        const i = idxOf.get(link.fromId), j = idxOf.get(link.toId);
+        if (i !== undefined && j !== undefined) { adj[i].push(j); adj[j].push(i); }
+      });
+
+      // Degrees
+      const degrees = adj.map(a => a.length);
+      const degSeq  = [...degrees].sort((a, b) => b - a);
+
+      // BFS utility
+      function bfs(start) {
+        const dist = new Int32Array(n).fill(-1);
+        dist[start] = 0;
+        const q = [start];
+        for (let h = 0; h < q.length; h++) {
+          const v = q[h];
+          for (const u of adj[v]) {
+            if (dist[u] === -1) { dist[u] = dist[v] + 1; q.push(u); }
+          }
+        }
+        return dist;
+      }
+
+      // Connected components
+      const comp = new Int32Array(n).fill(-1);
+      let numComp = 0;
+      for (let s = 0; s < n; s++) {
+        if (comp[s] !== -1) continue;
+        bfs(s).forEach((d, i) => { if (d >= 0) comp[i] = numComp; });
+        numComp++;
+      }
+      const isConnected = numComp === 1;
+
+      // Bipartite
+      const color = new Int8Array(n).fill(-1);
+      let bipartite = true;
+      outer: for (let s = 0; s < n; s++) {
+        if (color[s] !== -1) continue;
+        color[s] = 0;
+        const q = [s];
+        for (let h = 0; h < q.length; h++) {
+          const v = q[h];
+          for (const u of adj[v]) {
+            if (color[u] === -1) { color[u] = 1 - color[v]; q.push(u); }
+            else if (color[u] === color[v]) { bipartite = false; break outer; }
+          }
+        }
+      }
+
+      // Eulerian
+      const oddDeg = degrees.filter(d => d % 2 !== 0).length;
+      const eulerCircuit = isConnected && oddDeg === 0 && m > 0;
+      const eulerPath    = isConnected && oddDeg === 2;
+
+      // Diameter (cap at n≤300 to avoid UI freeze)
+      let diameter = -1;
+      if (isConnected && n <= 300) {
+        for (let s = 0; s < n; s++) {
+          const d = Math.max(...bfs(s));
+          if (d > diameter) diameter = d;
+        }
+      }
+
+      // Greedy chromatic number
+      const col = new Int32Array(n);
+      for (let v = 0; v < n; v++) {
+        const used = new Set(adj[v].map(u => col[u]).filter(c => c > 0));
+        let c = 1; while (used.has(c)) c++;
+        col[v] = c;
+      }
+      const chromatic = Math.max(...col);
+
+      // NP-hard exact (n ≤ 25 only)
+      const exact = n <= 25;
+      let mis = 0, clique = 0;
+      if (exact) {
+        const amat = Array.from({length: n}, (_, i) => {
+          const row = new Uint8Array(n);
+          adj[i].forEach(j => { row[j] = 1; });
+          return row;
+        });
+        function computeMIS(cands, sz) {
+          if (!cands.length) return sz;
+          const v = cands[0], rest = cands.slice(1);
+          return Math.max(
+            computeMIS(rest.filter(u => !amat[v][u]), sz + 1),
+            computeMIS(rest, sz)
+          );
+        }
+        function computeClique(cands, sz) {
+          if (!cands.length) return sz;
+          let best = sz;
+          for (let i = 0; i < cands.length; i++) {
+            if (sz + cands.length - i <= best) break;
+            const v = cands[i];
+            best = Math.max(best, computeClique(cands.slice(i+1).filter(u => amat[v][u]), sz+1));
+          }
+          return best;
+        }
+        const all = [...Array(n).keys()];
+        mis   = computeMIS(all, 0);
+        clique = computeClique(all, 0);
+      }
+
+      return {
+        vertex_count: n, edge_count: m,
+        density: n > 1 ? (2 * m) / (n * (n - 1)) : 0,
+        is_connected: isConnected, connected_components: numComp,
+        min_degree: Math.min(...degrees), max_degree: Math.max(...degrees),
+        avg_degree: degrees.reduce((a,b)=>a+b,0) / n,
+        degree_sequence: degSeq,
+        is_bipartite: bipartite,
+        has_eulerian_circuit: eulerCircuit, has_eulerian_path: eulerPath,
+        diameter, chromatic_number_greedy: chromatic,
+        max_independent_set: mis, min_vertex_cover: n - mis, max_clique: clique,
+        exact_computed: exact, diameter_computed: isConnected && n <= 300,
+      };
+    }
+
+    // ── analysis rendering ────────────────────────────────────────────────────
+    const analyzeBtn  = document.getElementById('btn-analyze');
+    const scrollEl    = document.getElementById('analysis-scroll');
+
+    function bool(v) {
+      return v ? '<span class="val yes">Yes</span>' : '<span class="val no">No</span>';
+    }
+    function naIf(cond, val) {
+      return cond ? `<span class="val">${val}</span>` : '<span class="val na">N/A</span>';
+    }
+    function row(lbl, valHtml) {
+      return `<div class="a-row"><span class="lbl">${lbl}</span>${valHtml}</div>`;
+    }
+
+    analyzeBtn.addEventListener('click', () => {
+      if (!vivaGraph || vivaGraph.getNodesCount() === 0) {
+        scrollEl.innerHTML = '<p id="empty-msg">Build a graph, then click Analyze.</p>';
+        return;
+      }
+      analyzeBtn.disabled = true;
+      analyzeBtn.textContent = '…';
+      setTimeout(() => {
+        const a = analyzeGraph(vivaGraph);
+        if (!a) { analyzeBtn.disabled = false; analyzeBtn.textContent = 'Analyze'; return; }
+
+        const diamStr = !a.diameter_computed
+          ? '<span class="val na">N/A (n &gt; 300)</span>'
+          : a.diameter === -1
+            ? '<span class="val na">∞ (disconnected)</span>'
+            : `<span class="val">${a.diameter}</span>`;
+
+        const exactNote = a.exact_computed ? '' :
+          '<div class="a-row"><span class="lbl" style="color:#e94560;font-size:0.7rem">Graph &gt;25 — NP-hard skipped</span></div>';
+
+        scrollEl.innerHTML = `
+          <div class="section-title" style="margin-top:0">Basic</div>
+          ${row('Vertices',  `<span class="val">${a.vertex_count}</span>`)}
+          ${row('Edges',     `<span class="val">${a.edge_count}</span>`)}
+          ${row('Density',   `<span class="val">${(a.density*100).toFixed(1)}%</span>`)}
+
+          <div class="section-title">Connectivity</div>
+          ${row('Connected',   bool(a.is_connected))}
+          ${row('Components',  `<span class="val">${a.connected_components}</span>`)}
+          ${row('Diameter',    diamStr)}
+
+          <div class="section-title">Degrees</div>
+          ${row('Min', `<span class="val">${a.min_degree}</span>`)}
+          ${row('Max', `<span class="val">${a.max_degree}</span>`)}
+          ${row('Avg', `<span class="val">${a.avg_degree.toFixed(2)}</span>`)}
+          <div class="deg-seq">(${a.degree_sequence.slice(0,30).join(', ')}${a.degree_sequence.length>30?', …':''})</div>
+
+          <div class="section-title">Properties</div>
+          ${row('Bipartite',        bool(a.is_bipartite))}
+          ${row('Eulerian circuit', bool(a.has_eulerian_circuit))}
+          ${row('Eulerian path',    bool(a.has_eulerian_path))}
+
+          <div class="section-title">Coloring</div>
+          ${row('Chromatic # (greedy)', `<span class="val">${a.chromatic_number_greedy}</span>`)}
+
+          <div class="section-title">NP-Hard (Exact)</div>
+          ${exactNote}
+          ${row('Max independent set', naIf(a.exact_computed, a.max_independent_set))}
+          ${row('Min vertex cover',    naIf(a.exact_computed, a.min_vertex_cover))}
+          ${row('Max clique',          naIf(a.exact_computed, a.max_clique))}
+        `;
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = 'Analyze';
+      }, 10);
     });
 
     // ── initial empty graph ───────────────────────────────────────────────────
